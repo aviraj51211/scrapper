@@ -1,4 +1,4 @@
-# scrapper/smartscout/keyword_scraper.py
+# scrapers/smartscout/scrapers/rank_maker.py
 import traceback
 import time
 import os
@@ -9,13 +9,14 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
-from .auth import get_authenticated_driver
+from ..auth import get_authenticated_driver  # Corrected relative import
 
 
 def setup_download_directory(download_path: str = None):
     """Setup download directory and return path"""
     if download_path is None:
-        download_path = os.path.join(os.path.dirname(__file__), "..", "downloads")
+        # Use project downloads directory
+        download_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "downloads")
     
     os.makedirs(download_path, exist_ok=True)
     return download_path
@@ -62,18 +63,7 @@ def run_keyword_tools_export(
     max_rank: int = 65  # Default value for Latest Rank filter
 ) -> dict:
     """
-    Full workflow for Keyword Tools/Rank Maker export:
-    1. Login to SmartScout
-    2. Navigate to home page
-    3. Click on Keyword Tools menu item
-    4. Click on Rank Maker submenu
-    5. Search for ASIN
-    6. Open Filters panel
-    7. Expand Latest Rank filter
-    8. Set max rank value
-    9. Click Export as button
-    10. Click CSV option
-    11. Download and save file
+    Full workflow for Keyword Tools/Rank Maker export
     """
     # Get system Downloads folder (where Chrome actually downloads)
     system_downloads = os.path.join(os.path.expanduser("~"), "Downloads")
@@ -195,26 +185,26 @@ def run_keyword_tools_export(
         
         # Copy to output directory with custom name
         new_filename = f"rank_maker_{search_text.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-        dest_file = os.path.join(output_path, new_filename)
-        shutil.copy2(downloaded_file, dest_file)
-        print(f"  ✅ Copied to: {dest_file}")
+        final_file_path = os.path.join(output_path, new_filename)
+        shutil.copy2(downloaded_file, final_file_path)
+        print(f"  ✅ Copied to: {final_file_path}")
         
-        # Optionally delete from Downloads
+        # Delete from Downloads folder if requested
         if cleanup_downloads:
             try:
                 os.remove(downloaded_file)
-                print(f"  🗑️ Removed from Downloads")
+                print(f"  🗑️ Removed from Downloads folder")
             except Exception as e:
                 print(f"  ⚠️ Could not remove from Downloads: {e}")
         
-        downloaded_file = dest_file
+        file_size = os.path.getsize(final_file_path)
         
         result = {
             "status": "success",
             "message": f"Rank Maker export completed for ASIN '{search_text}' with max rank {max_rank}",
-            "file_path": downloaded_file,
+            "file_path": final_file_path,
             "file_name": new_filename,
-            "file_size": os.path.getsize(downloaded_file),
+            "file_size": file_size,
             "timestamp": datetime.now().isoformat(),
             "asin": search_text,
             "max_rank": max_rank
@@ -226,14 +216,6 @@ def run_keyword_tools_export(
         error_msg = f"Scraping failed: {str(e)}"
         print(error_msg)
         print(f"Traceback:\n{traceback.format_exc()}")
-        
-        try:
-            screenshot_path = os.path.join(output_path, f"error_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png")
-            driver.save_screenshot(screenshot_path)
-            print(f"Saved error screenshot: {screenshot_path}")
-        except:
-            pass
-            
         raise Exception(error_msg) from e
 
     finally:
