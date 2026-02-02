@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 # Import scrapers
 from scrapers.smartscout.scrapers.niche_finder import run_niche_finder_export
 from scrapers.smartscout.scrapers.rank_maker import run_keyword_tools_export
+from scrapers.smartscout.scrapers.product_search import run_product_search_export
 
 # Load environment variables
 load_dotenv()
@@ -98,8 +99,31 @@ async def smartscout_seller_search():
     return {"message": "Endpoint not yet implemented"}
 
 @app.post("/smartscout/product-search")
-async def smartscout_product_search():
-    return {"message": "Endpoint not yet implemented"}
+async def smartscout_product_search(request: ScrapeRequest, background_tasks: BackgroundTasks):
+    try:
+        result = await asyncio.get_event_loop().run_in_executor(
+            SCRAPER_EXECUTOR,
+            run_product_search_export,
+            request.search_text,  # search_text used as keywords
+            request.username,
+            request.password,
+            request.max_rank,     # max_rank used as iRank
+            None
+        )
+        
+        file_path = result["file_path"]
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=500, detail="File was not created")
+        
+        background_tasks.add_task(cleanup_file, file_path)
+        
+        return FileResponse(
+            path=file_path,
+            filename=result["file_name"],
+            media_type="text/csv"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/website2/scrape")
 async def website2_scrape():
